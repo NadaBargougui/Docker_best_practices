@@ -62,8 +62,6 @@ to receive security or other updates they will be pushed to a new version such a
 enough to assume deterministic builds.
 FROM node:16.17.0-bullseye-slim
 
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 # 2. Install only production dependencies in the Node.js Docker image
 
 #////////////////////////////////////
@@ -84,8 +82,6 @@ FROM node:16.17.0-bullseye-slim
 for a functional application to work.
 'Running npm ci --only=production' or 'npm install --production' will install only dependencies needed
 for runtime, making the image smaller.
-
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 # 3. Optimize Node.js tooling for production
 
@@ -108,8 +104,6 @@ is running in a production environment.
    ● Some libraries behave differently in production to improve security.
   ● Debugging tools and unnecessary logs are disabled..
 
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 # 4. Don’t run containers as root
 
 #////////////////////////////////////
@@ -121,7 +115,7 @@ is running in a production environment.
 and do not forget to
 COPY --chown=node:node . /usr/src/app
 
-# ////////////////////////////////////
+#////////////////////////////////////
 
 # WHY?
 
@@ -144,7 +138,7 @@ permission issues.
 
 # 5. Safely terminate Node.js Docker web applications
 
-# ////////////////////////////////////
+#////////////////////////////////////
 
 # Don't
 
@@ -159,7 +153,7 @@ permission issues.
     ENTRYPOINT ["/usr/bin/dumb-init", "--"]
     CMD ["node", "server.js"]
 
-# ////////////////////////////////////
+#////////////////////////////////////
 
 # WHY?
 
@@ -233,8 +227,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends dumb-init
 CMD ["dumb-init", "node", "server.js"]
 
 Instead of running Node.js as PID 1, we use 'dumb-init' to:
+
 ✅ Run as PID 1
+
 ✅ Start Node.js as a child process
+
 ✅ Forward signals to Node.js properly
 This way, when Docker sends SIGTERM, dumb-init ensures that Node.js receives it and exits gracefully.
 
@@ -247,7 +244,7 @@ CMD ["node", "server.js"]
 - Tip: it’s even better to install the dumb-init tool in an earlier build stage image, and then copy the
   resulting /usr/bin/dumb-init file to the final container image to keep that image clean.
 
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 # 6. Graceful shutdown for your Node.js web applications
 
@@ -283,8 +280,6 @@ Let’s add our event handler for 'Fastify':
         process.once('SIGTERM', closeGracefully)
 
 ==> This is more of a generic web application concern than Dockerfile related, but is even more important in orchestrated environments!
-
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 # 7. Find and fix security vulnerabilities in your Node.js docker image
 
@@ -327,8 +322,6 @@ vulnerabilities from 2 primary sources:
 
 ⚠️ Snyk also recommends other base images to switch to, so you don’t have to figure this out yourself.
 
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 # 8. Use multi-stage builds
 
 # ////////////////////////////////////
@@ -343,9 +336,8 @@ our dependencies, compile any native npm packages if needed, and then copy all t
 
 If you’re building Docker images for work, there’s a high chance that you also maintain private npm packages. If that’s the case, then
 you probably needed to find some way to make that secret 'NPM_TOKEN' available to the npm install.
-#/////////////////////////////////////
-FROM node:20.9.0-bullseye-slim
 
+    FROM node:20.9.0-bullseye-slim
     RUN apt-get update && apt-get install -y --no-install-recommends dumb-init
     ENV NODE_ENV production
     ENV NPM_TOKEN 1234
@@ -358,6 +350,7 @@ FROM node:20.9.0-bullseye-slim
     CMD ["dumb-init", "node", "server.js"]
 
 #/////////////////////////////////////////
+
 The RUN echo line essentially allows the container to authenticate with npm’s registry using the token, so you can
 install private packages from npm.
 
@@ -399,7 +392,7 @@ image that we actually optimize for and publish to a registry.
 
 Here is the update to our Dockerfile that represents our progress so far, but separated into two stages:
 
-    # --------------> The build image__
+    # --------------> The build image
 
 FROM node:latest AS build
 RUN apt-get update && apt-get install -y --no-install-recommends dumb-init
@@ -410,10 +403,9 @@ RUN echo "//registry.npmjs.org/:\_authToken=$NPM_TOKEN" > .npmrc && \ # Writes t
 npm ci --only=production && \
  rm -f .npmrc
 
-# --------------> The production image\_\_
+#--------------> The production image
 
 FROM node:20.9.0-bullseye-slim
-
 ENV NODE_ENV production
 COPY --from=build /usr/bin/dumb-init /usr/bin/dumb-init # Copies dumb-init from the build stage into the production image.
 USER node # Runs the application as the node user instead of root
@@ -421,8 +413,6 @@ WORKDIR /usr/src/app
 COPY --chown=node:node --from=build /usr/src/app/node_modules /usr/src/app/node_modules # Copies dependencies (node_modules) from the build stage
 COPY --chown=node:node . /usr/src/app # Copies the full source code (.) into the container
 CMD ["dumb-init", "node", "server.js"]
-
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 # 9. Keeping unnecessary files out of your Node.js Docker images
 
@@ -436,8 +426,6 @@ to the Docker image.
 => That’s a big NO as we may be copying over modified source code inside node_modules/.
 => It helps speed up Docker builds because it ignores files that would have otherwise caused a cache invalidation.
 
-# /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 # 10. Mounting secrets into the Docker build image
 
 #////////////////////////////////////
@@ -450,8 +438,11 @@ The .dockerignore file applies to the entire build context and cannot be turned 
 - If you don’t ignore it, it will be included in all stages, including the production image, which is risky since .npmrc contains sensitive credentials (NPM token).
 
 * Worarounds:
+
   1️⃣ Use rm -f .npmrc After Installing Dependencies
+
   2️⃣ Mount .npmrc as a Secret instead of Copying it using Docker BuildKit secrets:
+
   DOCKER_BUILDKIT=1 docker build --secret id=npmrc,src=$HOME/.npmrc .
   and put '.npmrc' in the '.dockerignore'
 
@@ -461,53 +452,46 @@ Once npm ci runs, the secret disappears and never exists inside the image layers
 
 Note: Secrets are a new feature in Docker and if you’re using an older version, you might need to enable it Buildkit as follows:
 
-    $ DOCKER_BUILDKIT=1 docker build . -t nodejs-tutorial --build-arg NPM_TOKEN=1234 --secret id=npmrc,src=.npmrc
+    $ DOCKER_BUILDKIT=1 docker build . -t
+    nodejs-tutorial --build-arg NPM_TOKEN=1234
+    --secret id=npmrc,src=.npmrc
 
 Finally we have:
-#/////////////////////////////////////////////////////////////////////////////////
 
-# --------------> The build image\_\_
+# --------------> The build image
 
-FROM node:latest AS build
-RUN apt-get update && apt-get install -y --no-install-recommends dumb-init
-WORKDIR /usr/src/app
-COPY package\*.json /usr/src/app/
-RUN --mount=type=secret,mode=0644,id=npmrc,target=/usr/src/app/.npmrc npm ci --only=production
+    FROM node:latest AS build
+    RUN apt-get update && apt-get install -y --no-install-recommends dumb-init
+    WORKDIR /usr/src/app
+    COPY package\*.json /usr/src/app/
+    RUN --mount=type=secret,mode=0644,id=npmrc,target=/usr/src/app/.npmrc npm ci --only=production
 
-# --------------> The production image\_\_
+# --------------> The production image
 
-FROM node:20.9.0-bullseye-slim
+    FROM node:20.9.0-bullseye-slim
+    ENV NODE_ENV production
+    COPY --from=build /usr/bin/dumb-init /usr/bin/dumb-init
+    USER node
+    WORKDIR /usr/src/app
+    COPY --chown=node:node --from=build /usr/src/app/node_modules /usr/src/app/node_modules
+    COPY --chown=node:node . /usr/src/app
+    CMD ["dumb-init", "node", "server.js"]
 
-ENV NODE_ENV production
-COPY --from=build /usr/bin/dumb-init /usr/bin/dumb-init
-USER node
-WORKDIR /usr/src/app
-COPY --chown=node:node --from=build /usr/src/app/node_modules /usr/src/app/node_modules
-COPY --chown=node:node . /usr/src/app
-CMD ["dumb-init", "node", "server.js"]
-#///////////////////////////////////////////////////////////////////////////////////////
 And finally, the command that builds the Node.js Docker image:
 
-    $ docker build . -t nodejs-tutorial --secret id=npmrc,src=.npmrc
+    $ docker build . -t nodejs-tutorial --secret
+    id=npmrc,src=.npmrc
 
 🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰
 
-# \\\\\\\\\\\\ Trivy //////////////
+# \\\\\\\\\\\\ Trivy /////////
 
 Trivy is a fast, free, and open-source security scanner for Docker images, filesystems,
 Kubernetes, and cloud services.
 
 # Install Trivy
 
-- Question:
-
-1. Use a VM to run Trivy inside a Docker container
-   OR
-2. Install Trivy locally
-
-- Answer:
-
-# Install Trivy locally is the best way:
+# Install Trivy locally:
 
 - Go to the official GitHub releases page (https://github.com/aquasecurity/trivy/releases)
 - Scroll down to the "Assets" section
@@ -517,15 +501,17 @@ Kubernetes, and cloud services.
 
 # Add Trivy to the System PATH with the command (or manually):
 
-setx PATH "%PATH%;C:\Users\User\Downloads\trivy_0.59.1_windows-64bit"
+setx PATH "%PATH%;C:\Users\User\Downloads\trivy_0.59.
+1_windows-64bit"
 
 # Verify Installation
 
-trivy --version
+    trivy --version
 
 # Scan an Image
 
-trivy image <image name>
+    trivy image <image name>
+
 exp: trivy image hello-world-app
 
 🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰🌸🐶🍓✨💖🐱🌈🌻🎀🦄💫🐰🍉🎶🐣🍩💎🥰
