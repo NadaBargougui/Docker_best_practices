@@ -12,6 +12,16 @@
 
     FROM node:16.17.0-bullseye-slim
 
+UPDATE:
+
+# You can switch to the Chainguard node image, Chainguard is a reletively new and growing company that aims
+
+# to provide 0 CVEs (common vulnerabilities and exposures) and they're quickly becoming a standard for secure containers.
+
+# if you want to know more about it, u can check this great talk by Bret Fisher and Dan Lorenc (Chainguard's CEO):
+
+# https://www.youtube.com/watch?v=7WbenY-WdEE
+
 #////////////////////////////////////
 
 # WHY?
